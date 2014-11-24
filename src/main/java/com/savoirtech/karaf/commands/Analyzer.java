@@ -27,6 +27,8 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.LinkedHashSet;
 import java.util.Map;
+import java.util.Set;
+import java.util.HashSet;
 
 import org.apache.karaf.shell.commands.Argument;
 import org.apache.karaf.shell.commands.Command;
@@ -70,7 +72,7 @@ public class Analyzer extends FeaturesCommandSupport {
                 return;
             }
 
-            int unresolved = displayFeatureTree(admin, feature.getName(), feature.getVersion(), "");
+            int unresolved = processFeatureTree(admin, feature.getName(), feature.getVersion(), "");
             if (unresolved > 0) {
                 System.out.println("Tree contains " + unresolved + " unresolved dependencies");
                 System.out.println(" * means that node declares dependency but the dependent feature is not available.");
@@ -81,13 +83,10 @@ public class Analyzer extends FeaturesCommandSupport {
         }
     }
   
-    private int displayFeatureTree(FeaturesService admin, String featureName, String featureVersion, String prefix) throws Exception {
-
-        /**
-         * If system == true, force only system repo usage? Every time not resolved, then not in system?
-         */
+    private int processFeatureTree(FeaturesService admin, String featureName, String featureVersion, String prefix) throws Exception {
 
         int unresolved = 0;
+        Set<String> resources = new HashSet<String>();
 
         Feature resolved = admin.getFeature(featureName, featureVersion);
 
@@ -122,6 +121,12 @@ public class Analyzer extends FeaturesCommandSupport {
                     } else {
                         System.out.println("Found " + bundleLocation.get(i)  + " in system repo.");
                     }
+                } else {
+                    if (resources.contains(bundleLocation.get(i))) {
+                        System.out.println("Duplication of feature resource: " + bundleLocation.get(i));
+                    } else {
+                        resources.add(bundleLocation.get(i));
+                    }
                 }
             }
 
@@ -129,7 +134,7 @@ public class Analyzer extends FeaturesCommandSupport {
             List<Dependency> dependencies = resolved.getDependencies();
             for (int i = 0, j = dependencies.size(); i < j; i++) {
                 Dependency toDisplay =  dependencies.get(i);
-                unresolved += displayFeatureTree(admin, toDisplay.getName(), toDisplay.getVersion(), prefix +1);
+                unresolved += processFeatureTree(admin, toDisplay.getName(), toDisplay.getVersion(), prefix +1);
             }
 
         }
