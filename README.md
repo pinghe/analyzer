@@ -33,4 +33,5 @@ To execute command on Karaf, invoke:
  aetos:analyzer FeatureName [-s] [-v]
 
  -s are resources all available in system repo?
+
  -v Verbose output.
