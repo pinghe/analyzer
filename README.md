@@ -23,9 +23,6 @@ To build, invoke:
 analyzer installation:
 ===
 
- feature:install analyzer 
-
-
 To install in Karaf, invoke from console:
 
  install -s mvn:com.savoirtech.karaf.commands/analyzer
