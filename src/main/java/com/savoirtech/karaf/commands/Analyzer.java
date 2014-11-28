@@ -45,6 +45,9 @@ import org.apache.karaf.features.command.FeaturesCommandSupport;
 @Command(scope = "aetos", name = "analyzer", description = "Karaf feature descriptor analyzer Command")
 public class Analyzer extends FeaturesCommandSupport {
 
+    private int notFound = 0;
+    private int totalChecked = 0;
+
     @Argument(index = 0, name = "feature", description = "The name of the Karaf feature", required = true, multiValued = false)
     private String name;
 
@@ -56,6 +59,9 @@ public class Analyzer extends FeaturesCommandSupport {
 
     @Option(name = "-v", aliases = { "--verbose" }, description = "Verbose output", required = false, multiValued = false)
     private boolean verbose;
+
+    @Option(name = "-t", aliases = { "--showtree" }, description = "Show tree", required = false, multiValued = false)
+    private boolean showTree = false;
 
     protected void doExecute(FeaturesService admin) throws Exception {
         try {
@@ -78,6 +84,8 @@ public class Analyzer extends FeaturesCommandSupport {
                 System.out.println(" * means that node declares dependency but the dependent feature is not available.");
             }
 
+            System.out.println("Total Checked:: " + totalChecked + " Not Found:: " + notFound);
+
         } catch (Exception e) {
             //Ignore
         }
@@ -91,9 +99,13 @@ public class Analyzer extends FeaturesCommandSupport {
         Feature resolved = admin.getFeature(featureName, featureVersion);
 
         if (resolved != null) {
-            System.out.println(prefix + " " + resolved.getName() + " " + resolved.getVersion());
+	    if (showTree) {
+                System.out.println(prefix + " " + resolved.getName() + " " + resolved.getVersion());
+	    }
         } else {
-            System.out.println(prefix + " " + featureName + " " + featureVersion + " *");
+	    if (showTree) {
+                System.out.println(prefix + " " + featureName + " " + featureVersion + " *");
+            }
             unresolved++;
         }
 
@@ -115,16 +127,19 @@ public class Analyzer extends FeaturesCommandSupport {
 
             for (int i = 0, j = bundleLocation.size(); i < j; i++) {
                 if (systemRepo) {
+		    totalChecked++;
                     String local = convertToLocal(bundleLocation.get(i));
                     if (!isInLocal(local)) {
                         System.out.println("Could not find " + bundleLocation.get(i)  + " in system repo.");
+			notFound++;
                     } else {
-                        System.out.println("Found " + bundleLocation.get(i)  + " in system repo.");
+                        //System.out.println("Found " + bundleLocation.get(i)  + " in system repo.");
                     }
                 } else {
                     if (resources.contains(bundleLocation.get(i))) {
                         System.out.println("Duplication of feature resource: " + bundleLocation.get(i));
                     } else {
+		        System.out.println("adding to resources...");
                         resources.add(bundleLocation.get(i));
                     }
                 }
@@ -143,13 +158,59 @@ public class Analyzer extends FeaturesCommandSupport {
     }
 
     public String convertToLocal(String location) {
-        String base = System.getProperty("karaf.home") + System.getProperty("file.separator") + System.getProperty("karaf.default.repository");
-        String[] url = location.split(":");
-        String[] parts = url[1].split("/"); 
-        base = base + System.getProperty("file.separator") + parts[0].replaceAll("\\.", System.getProperty("file.separator"));
-        String fileName = System.getProperty("file.separator") + parts[1] + "-" + parts[2] + ".jar";
-        base = base + System.getProperty("file.separator") + parts[1] + System.getProperty("file.separator") + parts[2] + fileName;
-        return base;
+	try {
+            String base = System.getProperty("karaf.home") + System.getProperty("file.separator") + System.getProperty("karaf.default.repository");
+
+            // Strip wrap
+	    if (location.startsWith("wrap") ) {
+	        location = location.substring(5, location.length());
+		//System.out.println("Location is now: " + location);
+	    }
+
+            // check config file
+	    if (location.startsWith("blueprint")) {
+	        location = location.substring(10, location.length() );
+		//System.out.println("Location is now: " + location);
+	    }
+            if (location.startsWith("file")) {
+                location = location.substring(5, location.length() );
+		//System.out.println("Location is now: " + location);
+		// Set base to etc or system
+		if (location.startsWith("etc")) {
+		    //System.out.println("adjusting base dir...");
+		    base = System.getProperty("karaf.home") + System.getProperty("file.separator");
+                    return base + location;
+		}
+	    }
+	   
+	    // Strip conditionals
+	    if (location.contains("(condition:")) {
+	        location = location.substring(0, location.indexOf("(", 0)) ;
+	    }
+
+	    // Strip $ extras
+	    if (location.contains("$")) {
+	        location = location.substring(0, location.indexOf("$", 0)) ;
+		//System.out.println("Location is now: " + location);
+	    }
+
+            String[] url = location.split(":");
+            String[] parts = url[1].split("/"); 
+	    base = base + System.getProperty("file.separator");
+	    String jamie = parts[0];
+	    String[] pathway = jamie.split("\\.");
+	    String replaced = "";
+	    for (int i = 0; i < pathway.length; i++) {
+	        replaced = replaced + pathway[i] + System.getProperty("file.separator");
+	    }
+            base = base + replaced;
+            String fileName = System.getProperty("file.separator") + parts[1] + "-" + parts[2] + ".jar";
+            base = base + System.getProperty("file.separator") + parts[1] + System.getProperty("file.separator") + parts[2] + fileName;
+	    return base;
+	} catch (Exception ex) {
+	    System.out.println(ex.getMessage());
+	}
+	return "";
     }
 
     public boolean isInLocal(String location) {
