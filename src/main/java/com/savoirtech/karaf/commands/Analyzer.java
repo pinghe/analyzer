@@ -63,6 +63,14 @@ public class Analyzer extends FeaturesCommandSupport {
     @Option(name = "-t", aliases = { "--showtree" }, description = "Show tree", required = false, multiValued = false)
     private boolean showTree = false;
 
+    @Option(name = "-f1", aliases = { "--checkLevel1" }, description = "Check Level 1 for duplication of feature imports", required = false, multiValued = false)
+    private boolean checkLevel1 = false;
+
+    @Option(name = "-f2", aliases = { "--checkLevel2" }, description = "Check Level 2 for duplication of internal feature imports", required = false, multiValued = false)
+    private boolean checkLevel2 = false;
+
+    private Set<String> world = new HashSet<String>();
+
     protected void doExecute(FeaturesService admin) throws Exception {
         try {
             Feature feature = null;
@@ -102,10 +110,22 @@ public class Analyzer extends FeaturesCommandSupport {
 	    if (showTree) {
                 System.out.println(prefix + " " + resolved.getName() + " " + resolved.getVersion());
 	    }
+	    if (checkLevel1) {
+	    if (!world.contains(resolved.getName())) {
+		System.out.println("Add " + resolved.getName() + " to world.");
+	        world.add(resolved.getName());
+	    }
+	    }
         } else {
 	    if (showTree) {
                 System.out.println(prefix + " " + featureName + " " + featureVersion + " *");
             }
+	    if (checkLevel1) {
+	    if (!world.contains(featureName)) {
+		System.out.println("Add " + featureName + " to world");
+	        world.add(featureName);
+	    }
+	    }
             unresolved++;
         }
 
@@ -136,12 +156,14 @@ public class Analyzer extends FeaturesCommandSupport {
                         //System.out.println("Found " + bundleLocation.get(i)  + " in system repo.");
                     }
                 } else {
+		    if (checkLevel2) {
                     if (resources.contains(bundleLocation.get(i))) {
                         System.out.println("Duplication of feature resource: " + bundleLocation.get(i));
                     } else {
-		        System.out.println("adding to resources...");
+		        System.out.println("adding " + bundleLocation.get(i) + " to resources... " + resources.size());
                         resources.add(bundleLocation.get(i));
                     }
+		    }
                 }
             }
 
